@@ -52,10 +52,10 @@ Commits: `feat(messaging): declare rabbitmq topology`, `feat(outbox): add outbox
 
 ## Etapa 5 — Processamento e estoque ⭐ · Dia 3–4
 
-⬜ Consumer com ack manual e `prefetch`
-⬜ `StockService.reserve`: claim + UPDATEs condicionais em ordem de `product_id` (ADR-0001)
-⬜ Integração: **concorrência** (estoque 5, três pedidos de 2 → 2 PROCESSED, 1 FAILED, estoque 1)
-⬜ Integração: **reentrega** de pedido PROCESSED não altera estoque
+✅ Consumer com ack manual e `prefetch`
+✅ `StockService.reserve`: claim + UPDATEs condicionais em ordem de `product_id` (ADR-0001)
+✅ Integração: **concorrência** (estoque 5, três pedidos de 2 → 2 PROCESSED, 1 FAILED, estoque 1)
+✅ Integração: **reentrega** de pedido PROCESSED não altera estoque
 
 Commits: `feat(processing): consume order.created`, `feat(stock): reserve stock atomically`, `test(stock): prove no overselling under concurrency`
 
