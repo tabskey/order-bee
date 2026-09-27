@@ -1,26 +1,20 @@
-import {
-  Inject,
-  Injectable,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as amqp from 'amqp-connection-manager';
 import type { ChannelWrapper } from 'amqp-connection-manager';
 import type { EnvConfig } from '../config/env.schema';
+import { RabbitmqConnection } from './rabbitmq-connection';
 import { declareTopology, ORDERS_EXCHANGE } from './topology';
 
 @Injectable()
-export class MessagePublisher implements OnModuleInit, OnModuleDestroy {
-  private readonly connection: amqp.AmqpConnectionManager;
+export class MessagePublisher implements OnModuleInit {
   private readonly channel: ChannelWrapper;
 
-  constructor(@Inject(ConfigService) config: ConfigService<EnvConfig, true>) {
+  constructor(
+    rabbit: RabbitmqConnection,
+    @Inject(ConfigService) config: ConfigService<EnvConfig, true>,
+  ) {
     const retryDelaysMs = config.get('RETRY_DELAYS_MS', { infer: true });
-    this.connection = amqp.connect([
-      config.get('RABBITMQ_URL', { infer: true }),
-    ]);
-    this.channel = this.connection.createChannel({
+    this.channel = rabbit.createChannel({
       json: true,
       setup: (channel) => declareTopology(channel, retryDelaysMs),
     });
@@ -28,11 +22,6 @@ export class MessagePublisher implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     await this.channel.waitForConnect();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.channel.close();
-    await this.connection.close();
   }
 
   async publish(
