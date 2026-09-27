@@ -4,14 +4,19 @@ import { hashPassword } from '../security/password.util';
 async function seed(): Promise<void> {
   await dataSource.initialize();
 
+  const [userHash, adminHash] = await Promise.all([
+    hashPassword('user123'),
+    hashPassword('admin123'),
+  ]);
+
   await dataSource.query(
     `INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?), (?, ?, ?)`,
     [
-      'user@order-bee.dev',
-      hashPassword('user123'),
+      'user@test.local',
+      userHash,
       'USER',
-      'admin@order-bee.dev',
-      hashPassword('admin123'),
+      'admin@test.local',
+      adminHash,
       'ADMIN',
     ],
   );
