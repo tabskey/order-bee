@@ -85,7 +85,18 @@ Commits: `feat(auth): add jwt login and role guard`
 
 Commits: `feat(orders): add manual reprocess endpoint`, `docs(api): add swagger`, `feat(auth): add account registration`, `feat(users): add admin soft delete and role change with audit log`
 
-## Etapa 9 — Documentação · Dia 6–7
+## Etapa 9 — Observabilidade · Dia 6
+
+✅ RabbitMQ Management UI, DLQ e logs com `correlationId`/`orderId` já cobertos nas Etapas 0, 4 e 6 — nada a fazer aqui (ver seção 13 de `docs/ARCHITECTURE.md` e [ADR-0004](adr/0004-rabbitmq-com-retry-por-filas-de-atraso.md))
+✅ `GET /health` passa a reportar conectividade real: MySQL via `DataSource` (`SELECT 1`) e RabbitMQ via `RabbitmqConnection.isConnected()` (novo accessor, sem dependência nova). Banco fora do ar é falha real da API (`503`); RabbitMQ fora do ar é só informativo (`200`, `status: 'degraded'`) — a API nunca depende do broker para aceitar pedidos ([ADR-0005](adr/0005-transactional-outbox.md))
+✅ `OutboxRelayService` passa a logar `outbox.published` por evento publicado (antes só existia log de erro do lote)
+✅ Atualizar `docs/ARCHITECTURE.md` (seção 13) com o formato de `/health`
+
+Commits esperados: `feat(health): report db and rabbitmq connectivity`, `feat(outbox): log published events`, `docs(architecture): document health check shape`
+
+**Pronto quando:** `GET /health` reflete o estado real de MySQL e RabbitMQ sem depender do broker para responder; `outbox.published` aparece no log a cada evento relayado.
+
+## Etapa 10 — Documentação · Dia 6–7
 
 ⬜ README: como rodar, decisões (links para ADRs), SSO, investigação com logs, o que faria com mais tempo
 ⬜ `RESPOSTAS.md`: as cinco perguntas

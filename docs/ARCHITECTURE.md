@@ -353,6 +353,8 @@ Usuários de teste criados por seed. Integração com Keycloak descrita no READM
 
 "Pedido X ficou PENDING por 10 minutos": filtra pelo correlation ID. Sem `outbox.published` → relay parado (confere `outbox_events.published_at`). Publicado sem `processing.started` → fila ou worker (painel do RabbitMQ: mensagens prontas, consumers conectados). `retry.scheduled` repetido → falha técnica recorrente, motivo no log. `started` sem desfecho → worker caiu no meio (a mensagem sem ack volta para a fila).
 
+`GET /health` retorna `{ status: 'ok' | 'degraded', db: 'up' | 'down', rabbitmq: 'up' | 'down' }`. O banco é dependência dura de praticamente toda rota: `db: 'down'` responde `503`. O RabbitMQ não é — a API nunca publica diretamente nele (ADR-0005) — então `rabbitmq: 'down'` só rebaixa `status` para `degraded` e mantém `200`; é informativo, para um monitor externo enxergar o broker fora do ar sem derrubar o healthcheck do container (`docker-compose.yml` já usa este endpoint para decidir se a API está saudável, e isso não pode depender do RabbitMQ estar de pé). `outbox.published` é logado por evento publicado, com `orderId` (= `aggregateId`) e `correlationId`, no mesmo padrão dos demais eventos desta lista.
+
 ## 14. Padrões de design
 
 | Padrão | Onde | Motivo |
