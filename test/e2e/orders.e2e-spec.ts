@@ -116,4 +116,68 @@ describe('Orders (e2e)', () => {
       .send({ customerName: 'Alice', items: [] })
       .expect(401);
   });
+
+  it('returns 404 for a nonexistent order', () => {
+    return request(app.getHttpServer())
+      .get('/orders/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
+  it('gets an order by id with its items', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerName: 'Alice',
+        items: [{ productName: 'Widget', quantity: 2, price: 19.9 }],
+      })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .get(`/orders/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      id: created.body.id,
+      status: 'PENDING',
+      items: [
+        { productId: expect.any(Number), quantity: 2, unitPrice: '19.90' },
+      ],
+    });
+  });
+
+  it('lists orders with pagination metadata', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          customerName: `Customer ${i}`,
+          items: [{ productName: 'Widget', quantity: 1, price: 10 }],
+        })
+        .expect(201);
+    }
+
+    const response = await request(app.getHttpServer())
+      .get('/orders?page=1&limit=2')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(response.body.data).toHaveLength(2);
+    expect(response.body.meta).toEqual({
+      page: 1,
+      limit: 2,
+      total: 3,
+      totalPages: 2,
+    });
+  });
+
+  it('rejects a limit above 100', () => {
+    return request(app.getHttpServer())
+      .get('/orders?limit=101')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
 });

@@ -12,6 +12,10 @@
     {
       "key": "token",
       "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
     }
   ],
   "item": [
@@ -36,6 +40,28 @@
           "mode": "raw",
           "raw": "{\n  \"customerName\": \"Alice\",\n  \"items\": [\n    { \"productName\": \"Widget\", \"quantity\": 2, \"price\": 19.90 }\n  ]\n}"
         }
+      }
+    },
+    {
+      "name": "Get order",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "url": "{{baseUrl}}/orders/{{orderId}}"
+      }
+    },
+    {
+      "name": "List orders",
+      "request": {
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "url": "{{baseUrl}}/orders?page=1&limit=20"
       }
     }
   ]

@@ -1,10 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { OrdersService } from './orders.service';
 
 @UseGuards(JwtAuthGuard)
@@ -20,5 +30,15 @@ export class OrdersController {
   ) {
     const correlationId = request.id ?? randomUUID();
     return this.ordersService.create(dto, user.userId, correlationId);
+  }
+
+  @Get()
+  list(@Query() query: ListOrdersQueryDto) {
+    return this.ordersService.list(query.page, query.limit);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.ordersService.findById(id);
   }
 }

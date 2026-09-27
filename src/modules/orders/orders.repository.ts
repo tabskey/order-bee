@@ -19,6 +19,11 @@ export interface CreateOrderCommand {
   correlationId: string;
 }
 
+export interface OrderWithItems {
+  order: OrderEntity;
+  items: OrderItemEntity[];
+}
+
 @Injectable()
 export class OrdersRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -80,5 +85,33 @@ export class OrdersRepository {
 
       return { id: orderId, status: OrderStatus.PENDING };
     });
+  }
+
+  async findById(id: string): Promise<OrderWithItems | null> {
+    const order = await this.dataSource.manager.findOneBy(OrderEntity, {
+      id,
+    });
+    if (!order) {
+      return null;
+    }
+    const items = await this.dataSource.manager.findBy(OrderItemEntity, {
+      orderId: id,
+    });
+    return { order, items };
+  }
+
+  async findPage(
+    page: number,
+    limit: number,
+  ): Promise<{ orders: OrderEntity[]; total: number }> {
+    const [orders, total] = await this.dataSource.manager.findAndCount(
+      OrderEntity,
+      {
+        order: { createdAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      },
+    );
+    return { orders, total };
   }
 }

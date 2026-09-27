@@ -36,9 +36,9 @@ Commits: `test(orders): cover order total calculation`, `feat(auth): add minimal
 
 ## Etapa 3 — Consulta · Dia 2
 
-⬜ `GET /orders/:id` (404 se não existe)
-⬜ `GET /orders?page&limit` com limites (`limit` máx. 100) e metadados de paginação
-⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `GET /orders/:id` e `GET /orders`
+✅ `GET /orders/:id` (404 se não existe)
+✅ `GET /orders?page&limit` com limites (`limit` máx. 100) e metadados de paginação
+✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `GET /orders/:id` e `GET /orders`
 
 Commits: `feat(orders): add get and list endpoints`
 
