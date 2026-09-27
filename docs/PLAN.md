@@ -69,9 +69,9 @@ Commits: `test(processing): cover failure decision`, `feat(processing): add dela
 
 ## Etapa 7 — Autenticação · Dia 5
 
-⬜ Login, `RolesGuard`, `@Roles()` (`JwtStrategy` já existe desde a Etapa 2)
-⬜ e2e: 401 sem token; 403 USER no reprocess
-⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/login` e `Bearer {{token}}` nas demais requests
+✅ Login, `RolesGuard`, `@Roles()` (`JwtStrategy` já existe desde a Etapa 2)
+✅ e2e: 401 sem token (já coberto na Etapa 2); login com sucesso e credenciais inválidas (401). O caso "403 USER no reprocess" exige o endpoint da Etapa 8 e será coberto junto dele; `RolesGuard` tem teste de unidade cobrindo permitir/negar por role.
+✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/login` (captura `{{token}}` automaticamente) e `Bearer {{token}}` já usado nas demais requests
 
 Commits: `feat(auth): add jwt login and role guard`
 

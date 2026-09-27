@@ -27,6 +27,29 @@
       }
     },
     {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('token', body.accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"user@test.local\",\n  \"password\": \"user123\"\n}"
+        }
+      }
+    },
+    {
       "name": "Create order",
       "request": {
         "method": "POST",
