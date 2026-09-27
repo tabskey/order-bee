@@ -9,6 +9,7 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt-payload.interface';
@@ -17,6 +18,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { UsersService } from './users.service';
 
+@ApiTags('users')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 @Controller('users')

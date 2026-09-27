@@ -77,9 +77,9 @@ Commits: `feat(auth): add jwt login and role guard`
 
 ## Etapa 8 — Bônus · Dia 5–6
 
-⬜ `POST /orders/:id/reprocess` (ADMIN; 409 se não estiver FAILED)
-⬜ Swagger com auth configurada
-⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders/:id/reprocess`
+✅ `POST /orders/:id/reprocess` (ADMIN; 409 se não estiver FAILED)
+✅ Swagger com auth configurada
+✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders/:id/reprocess`
 ✅ `POST /auth/register` (pública, cria conta `USER`), `DELETE /users/:id` (ADMIN, soft delete) e `PATCH /users/:id/role` (ADMIN, promove/rebaixa outro usuário com log de auditoria em `user_role_changes`) — [ADR-0009](adr/0009-registro-de-conta-e-softdelete-de-usuario.md)
 ✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/register`, `DELETE /users/:id` e `PATCH /users/:id/role`
 

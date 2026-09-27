@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,6 +20,8 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { OrdersService } from './orders.service';
 
+@ApiTags('orders')
+@ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('orders')
 export class OrdersController {
