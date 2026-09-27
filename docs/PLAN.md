@@ -44,9 +44,9 @@ Commits: `feat(orders): add get and list endpoints`
 
 ## Etapa 4 — Mensageria · Dia 3
 
-⬜ Conexão RabbitMQ + declaração da topologia (ADR-0004)
-⬜ Outbox relay com `SKIP LOCKED` e publisher confirms
-⬜ Integração: evento no outbox chega à fila `order.created`
+✅ Conexão RabbitMQ + declaração da topologia (ADR-0004)
+✅ Outbox relay com `SKIP LOCKED` e publisher confirms
+✅ Integração: evento no outbox chega à fila `order.created`
 
 Commits: `feat(messaging): declare rabbitmq topology`, `feat(outbox): add outbox relay`
 
