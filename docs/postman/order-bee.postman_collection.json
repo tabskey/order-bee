@@ -21,6 +21,22 @@
         "method": "GET",
         "url": "{{baseUrl}}/health"
       }
+    },
+    {
+      "name": "Create order",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+        },
+        "url": "{{baseUrl}}/orders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerName\": \"Alice\",\n  \"items\": [\n    { \"productName\": \"Widget\", \"quantity\": 2, \"price\": 19.90 }\n  ]\n}"
+        }
+      }
     }
   ]
 }

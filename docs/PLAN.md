@@ -25,12 +25,14 @@ Commits: `feat(db): add initial schema migration`, `feat(db): add seed data`
 
 ## Etapa 2 — Criação de pedido · Dia 2
 
-⬜ `calculateOrderTotal` em centavos, **teste de unidade primeiro**
-⬜ `POST /orders`: DTO, validação de produto (422), transação order + items + outbox
-⬜ e2e: POST → pedido `PENDING` + linha no outbox; 422 para produto inexistente
-⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders`
+✅ `calculateOrderTotal` em centavos, **teste de unidade primeiro**
+✅ `POST /orders`: DTO, validação de produto (422), transação order + items + outbox
+✅ e2e: POST → pedido `PENDING` + linha no outbox; 422 para produto inexistente
+✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders`
 
-Commits: `test(orders): cover order total calculation`, `feat(orders): create order with outbox event`
+`JwtStrategy` (verificação do token, sem login/roles) foi adiantada da Etapa 7 para cá: `orders.created_by` é obrigatório desde a criação, então `POST /orders` já exige `Authorization: Bearer`. Formato do payload documentado na seção 6 de `docs/ARCHITECTURE.md`.
+
+Commits: `test(orders): cover order total calculation`, `feat(auth): add minimal jwt verification`, `test(e2e): add testcontainers mysql harness`, `feat(orders): create order with outbox event`, `docs: document orders payload and update postman`
 
 ## Etapa 3 — Consulta · Dia 2
 
@@ -67,7 +69,7 @@ Commits: `test(processing): cover failure decision`, `feat(processing): add dela
 
 ## Etapa 7 — Autenticação · Dia 5
 
-⬜ Login, `JwtStrategy`, `RolesGuard`, `@Roles()`
+⬜ Login, `RolesGuard`, `@Roles()` (`JwtStrategy` já existe desde a Etapa 2)
 ⬜ e2e: 401 sem token; 403 USER no reprocess
 ⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/login` e `Bearer {{token}}` nas demais requests
 
