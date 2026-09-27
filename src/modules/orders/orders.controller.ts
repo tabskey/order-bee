@@ -13,6 +13,8 @@ import type { Request } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt-payload.interface';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { OrdersService } from './orders.service';
@@ -40,5 +42,16 @@ export class OrdersController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.ordersService.findById(id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Post(':id/reprocess')
+  reprocess(
+    @Param('id') id: string,
+    @Req() request: Request & { id?: string },
+  ) {
+    const correlationId = request.id ?? randomUUID();
+    return this.ordersService.reprocess(id, correlationId);
   }
 }

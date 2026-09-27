@@ -17,6 +17,7 @@ describe('Orders (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     container = await startTestDatabase();
@@ -41,6 +42,11 @@ describe('Orders (e2e)', () => {
     dataSource = app.get(getDataSourceToken());
     token = sign(
       { sub: 1, email: 'user@test.local', role: 'USER' },
+      process.env.JWT_SECRET ?? 'change-me',
+      { expiresIn: '15m' },
+    );
+    adminToken = sign(
+      { sub: 2, email: 'admin@test.local', role: 'ADMIN' },
       process.env.JWT_SECRET ?? 'change-me',
       { expiresIn: '15m' },
     );
@@ -179,5 +185,85 @@ describe('Orders (e2e)', () => {
       .get('/orders?limit=101')
       .set('Authorization', `Bearer ${token}`)
       .expect(400);
+  });
+
+  it('reprocesses a FAILED order as ADMIN', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerName: 'Alice',
+        items: [{ productName: 'Widget', quantity: 2, price: 19.9 }],
+      })
+      .expect(201);
+    const orderId: string = created.body.id;
+    await dataSource.query(
+      "UPDATE orders SET status = 'FAILED', failure_reason = 'out of stock' WHERE id = ?",
+      [orderId],
+    );
+
+    const response = await request(app.getHttpServer())
+      .post(`/orders/${orderId}/reprocess`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
+    expect(response.body).toEqual({ id: orderId, status: 'PENDING' });
+
+    const [order] = await dataSource.query(
+      'SELECT status, failure_reason FROM orders WHERE id = ?',
+      [orderId],
+    );
+    expect(order.status).toBe('PENDING');
+    expect(order.failure_reason).toBeNull();
+
+    const outboxRows = await dataSource.query(
+      'SELECT event_type FROM outbox_events WHERE aggregate_id = ? ORDER BY id',
+      [orderId],
+    );
+    expect(outboxRows).toHaveLength(2);
+    expect(outboxRows[1].event_type).toBe('OrderCreatedEvent');
+  });
+
+  it('rejects reprocess from a non-ADMIN with 403', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerName: 'Alice',
+        items: [{ productName: 'Widget', quantity: 2, price: 19.9 }],
+      })
+      .expect(201);
+    await dataSource.query(
+      "UPDATE orders SET status = 'FAILED' WHERE id = ?",
+      [created.body.id],
+    );
+
+    return request(app.getHttpServer())
+      .post(`/orders/${created.body.id}/reprocess`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+  });
+
+  it('rejects reprocess of a non-FAILED order with 409', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerName: 'Alice',
+        items: [{ productName: 'Widget', quantity: 2, price: 19.9 }],
+      })
+      .expect(201);
+
+    return request(app.getHttpServer())
+      .post(`/orders/${created.body.id}/reprocess`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(409);
+  });
+
+  it('returns 404 reprocessing a nonexistent order', () => {
+    return request(app.getHttpServer())
+      .post('/orders/00000000-0000-0000-0000-000000000000/reprocess')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
   });
 });

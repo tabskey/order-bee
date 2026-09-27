@@ -11,6 +11,8 @@ import { calculateOrderTotal } from './domain/calculate-order-total';
 import { ORDER_CREATED_EVENT } from './domain/events/order-created.event';
 import { OrderStatus } from './domain/order-status.enum';
 import { centsToDecimalString, toCents } from './domain/money';
+import { OrderNotFailedError } from './errors/order-not-failed.error';
+import { OrderNotFoundError } from './errors/order-not-found.error';
 import { ProductsNotFoundError } from './errors/products-not-found.error';
 
 export interface CreateOrderCommand {
@@ -98,6 +100,37 @@ export class OrdersRepository {
       orderId: id,
     });
     return { order, items };
+  }
+
+  async reprocess(id: string, correlationId: string): Promise<void> {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOneBy(OrderEntity, { id });
+      if (!order) {
+        throw new OrderNotFoundError(id);
+      }
+      if (order.status !== OrderStatus.FAILED) {
+        throw new OrderNotFailedError(id, order.status);
+      }
+
+      const result = await manager
+        .createQueryBuilder()
+        .update(OrderEntity)
+        .set({ status: OrderStatus.PENDING, failureReason: null, processedAt: null })
+        .where('id = :id', { id })
+        .andWhere('status = :status', { status: OrderStatus.FAILED })
+        .execute();
+      if (!result.affected) {
+        throw new OrderNotFailedError(id, order.status);
+      }
+
+      await manager.insert(OutboxEventEntity, {
+        eventType: ORDER_CREATED_EVENT,
+        aggregateId: id,
+        payload: { orderId: id, correlationId },
+        correlationId,
+        publishedAt: null,
+      });
+    });
   }
 
   async findPage(

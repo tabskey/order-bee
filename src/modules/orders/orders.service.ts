@@ -1,10 +1,13 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './domain/order-status.enum';
+import { OrderNotFailedError } from './errors/order-not-failed.error';
+import { OrderNotFoundError } from './errors/order-not-found.error';
 import { ProductsNotFoundError } from './errors/products-not-found.error';
 import { OrdersRepository } from './orders.repository';
 
@@ -53,6 +56,24 @@ export class OrdersService {
         unitPrice: item.unitPrice,
       })),
     };
+  }
+
+  async reprocess(
+    id: string,
+    correlationId: string,
+  ): Promise<{ id: string; status: OrderStatus }> {
+    try {
+      await this.ordersRepository.reprocess(id, correlationId);
+    } catch (error) {
+      if (error instanceof OrderNotFoundError) {
+        throw new NotFoundException(error.message);
+      }
+      if (error instanceof OrderNotFailedError) {
+        throw new ConflictException(error.message);
+      }
+      throw error;
+    }
+    return { id, status: OrderStatus.PENDING };
   }
 
   async list(page: number, limit: number) {

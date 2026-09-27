@@ -131,6 +131,19 @@
       }
     },
     {
+      "name": "Reprocess order",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{adminToken}}", "type": "string" }
+          ]
+        },
+        "url": "{{baseUrl}}/orders/{{orderId}}/reprocess"
+      }
+    },
+    {
       "name": "Delete user",
       "request": {
         "method": "DELETE",
