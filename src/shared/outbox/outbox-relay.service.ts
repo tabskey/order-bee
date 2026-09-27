@@ -13,10 +13,6 @@ import { OutboxEventEntity } from './entities/outbox-event.entity';
 const POLL_INTERVAL_MS = 500;
 const BATCH_SIZE = 50;
 
-const ROUTING_KEY_BY_EVENT_TYPE: Record<string, string> = {
-  OrderCreatedEvent: ORDER_CREATED_ROUTING_KEY,
-};
-
 @Injectable()
 export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxRelayService.name);
@@ -66,11 +62,7 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
       }
 
       for (const event of events) {
-        const routingKey = ROUTING_KEY_BY_EVENT_TYPE[event.eventType];
-        if (!routingKey) {
-          throw new Error(`Unknown outbox event type: ${event.eventType}`);
-        }
-        await this.publisher.publish(routingKey, event.payload, {
+        await this.publisher.publish(ORDER_CREATED_ROUTING_KEY, event.payload, {
           'x-attempt': 0,
         });
         this.logger.log({
