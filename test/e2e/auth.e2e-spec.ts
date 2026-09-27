@@ -75,4 +75,50 @@ describe('Auth (e2e)', () => {
       .send({ email: 'user@test.local', password: 'wrong' })
       .expect(401);
   });
+
+  it('registers a new account as USER', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'newbie@test.local', password: 'newbie123' })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      id: expect.any(Number),
+      email: 'newbie@test.local',
+      role: 'USER',
+    });
+
+    const [row] = await dataSource.query(
+      'SELECT role FROM users WHERE email = ?',
+      ['newbie@test.local'],
+    );
+    expect(row.role).toBe('USER');
+  });
+
+  it('rejects registration with a duplicate email with 409', () => {
+    return request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'user@test.local', password: 'newbie123' })
+      .expect(409);
+  });
+
+  it('rejects registration with a short password with 400', () => {
+    return request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'shorty@test.local', password: 'short' })
+      .expect(400);
+  });
+
+  it('ignores a role sent in the register payload', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: 'sneaky@test.local',
+        password: 'sneaky123',
+        role: 'ADMIN',
+      })
+      .expect(201);
+
+    expect(response.body.role).toBe('USER');
+  });
 });

@@ -1,13 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { sign } from 'jsonwebtoken';
 import { Repository } from 'typeorm';
 import type { EnvConfig } from '../../shared/config/env.schema';
-import { verifyPassword } from '../../shared/security/password.util';
+import {
+  hashPassword,
+  verifyPassword,
+} from '../../shared/security/password.util';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { UserEntity } from './entities/user.entity';
-import type { JwtPayload } from './jwt-payload.interface';
+import type { JwtPayload, UserRole } from './jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -35,5 +43,24 @@ export class AuthService {
       expiresIn: this.config.get('JWT_EXPIRES_IN'),
     });
     return { accessToken };
+  }
+
+  async register(
+    dto: RegisterDto,
+  ): Promise<{ id: number; email: string; role: UserRole }> {
+    const existing = await this.users.findOneBy({ email: dto.email });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+    const role: UserRole = 'USER';
+    const inserted = await this.users.insert({
+      email: dto.email,
+      passwordHash,
+      role,
+    });
+    const id = inserted.identifiers[0].id as number;
+    return { id, email: dto.email, role };
   }
 }

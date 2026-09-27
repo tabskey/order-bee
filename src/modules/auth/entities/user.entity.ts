@@ -1,4 +1,9 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  DeleteDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import type { UserRole } from '../jwt-payload.interface';
 
 @Entity('users')
@@ -14,4 +19,7 @@ export class UserEntity {
 
   @Column({ type: 'enum', enum: ['USER', 'ADMIN'] })
   role: UserRole;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt?: Date;
 }

@@ -97,6 +97,8 @@ Regra de dependência: `domain/` não importa NestJS, ORM nem broker.
 ```mermaid
 erDiagram
     users    ||--o{ orders : cria
+    users    ||--o{ user_role_changes : "role alterada em (user_id)"
+    users    ||--o{ user_role_changes : "alterou (changed_by)"
     products ||--o{ order_items : "é pedido em"
     orders   ||--|{ order_items : contém
 
@@ -105,6 +107,15 @@ erDiagram
         VARCHAR email UK
         VARCHAR password_hash
         ENUM role "USER | ADMIN"
+        DATETIME deleted_at "nullable, soft delete"
+    }
+    user_role_changes {
+        BIGINT id PK
+        INT user_id FK "usuário alterado"
+        INT changed_by FK "admin que alterou"
+        ENUM old_role "USER | ADMIN"
+        ENUM new_role "USER | ADMIN"
+        DATETIME changed_at
     }
     products {
         INT id PK
@@ -321,11 +332,16 @@ Regra: nenhum teste de concorrência ou idempotência usa mock de banco. Os test
 
 JWT HS256 emitido por `POST /auth/login`, validado por `JwtStrategy`; `RolesGuard` + `@Roles()`.
 
-| Endpoint | USER | ADMIN |
-|---|---|---|
-| `POST /orders` | ✅ | ✅ |
-| `GET /orders`, `GET /orders/:id` | ✅ | ✅ |
-| `POST /orders/:id/reprocess` | ❌ 403 | ✅ |
+| Endpoint | Público | USER | ADMIN |
+|---|---|---|---|
+| `POST /auth/register` | ✅ | — | — |
+| `POST /orders` | ❌ | ✅ | ✅ |
+| `GET /orders`, `GET /orders/:id` | ❌ | ✅ | ✅ |
+| `POST /orders/:id/reprocess` | ❌ | ❌ 403 | ✅ |
+| `DELETE /users/:id` | ❌ | ❌ 403 | ✅ |
+| `PATCH /users/:id/role` | ❌ | ❌ 403 | ✅ |
+
+`POST /auth/register` (pública) cria conta com `role` sempre `USER`; `role` não é aceito no payload. `DELETE /users/:id` (ADMIN) é **soft delete**: seta `users.deleted_at` via `@DeleteDateColumn`, nunca remove a linha — `orders.created_by` continua íntegro; login exclui automaticamente usuários soft-deletados. `PATCH /users/:id/role` (ADMIN) troca a role de outro usuário e grava uma linha em `user_role_changes` (quem, de quem, role antes/depois, quando) na mesma transação — é o único caminho para criar uma nova conta `ADMIN` fora do seed. Nenhuma dessas duas rotas ADMIN permite que o admin altere a própria conta (`400` se `:id` for o próprio autenticado), para evitar lockout. Detalhes e trade-offs em [ADR-0009](adr/0009-registro-de-conta-e-softdelete-de-usuario.md).
 
 Usuários de teste criados por seed. Integração com Keycloak descrita no README ([ADR-0006](adr/0006-jwt-proprio-com-roles.md)).
 
