@@ -98,9 +98,9 @@ Commits esperados: `feat(health): report db and rabbitmq connectivity`, `feat(ou
 
 ## Etapa 10 — Documentação · Dia 6–7
 
-⬜ README: como rodar, decisões (links para ADRs), SSO, investigação com logs, o que faria com mais tempo
-⬜ `RESPOSTAS.md`: as cinco perguntas
-⬜ Revisão final do histórico e dos testes
+✅ README: como rodar, decisões (links para ADRs), SSO, investigação com logs, o que faria com mais tempo
+✅ `RESPOSTAS.md`: as cinco perguntas
+✅ Revisão final do histórico e dos testes
 
 Commits: `docs: add readme`, `docs: answer architecture questions`
 

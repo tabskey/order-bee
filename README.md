@@ -1,99 +1,77 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Order Bee
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API de pedidos com criação síncrona e processamento assíncrono (reserva de estoque) via RabbitMQ. Documento vivo de arquitetura em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), decisões em [`docs/adr/`](docs/adr/), plano de implementação em [`docs/PLAN.md`](docs/PLAN.md), respostas às perguntas de arquitetura em [`RESPOSTAS.md`](RESPOSTAS.md).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Como rodar
 
 ```bash
-$ npm install
+cp .env.example .env
+docker compose up --build
 ```
 
-## Compile and run the project
+Sobe `mysql`, `rabbitmq`, roda migrations (`migrate`, one-shot) e sobe `api` + `worker`. Pronto quando `GET http://localhost:3000/health` responde `200`.
+
+Seed (usuários e produtos de teste):
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose exec api npm run seed
 ```
 
-## Run tests
+Usuários: `user@test.local` / `user123` (role `USER`) e `admin@test.local` / `admin123` (role `ADMIN`). Produtos `Widget`, `Gadget`, `Gizmo`, estoque 5 cada.
+
+- Swagger: `http://localhost:3000/docs`
+- RabbitMQ Management: `http://localhost:15672` (`guest` / `guest`)
+- Postman: [`docs/postman/order-bee.postman_collection.json`](docs/postman/order-bee.postman_collection.json) — `POST /auth/login` captura `{{token}}` automaticamente; as demais requests já usam `Bearer {{token}}`.
+
+Rodando fora do compose (`npm run start:dev` / `npm run start:worker:dev`), aponte `.env` para `localhost` em vez dos hostnames dos serviços.
+
+## Testes
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run test              # unidade
+npm run test:e2e          # e2e, MySQL real via Testcontainers
+npm run test:integration  # MySQL + RabbitMQ reais via Testcontainers
 ```
 
-## Deployment
+Sem mocks em teste de concorrência, idempotência ou retry (ver `docs/AGENTS.md`).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Decisões de arquitetura
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Visão geral em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). ADRs:
 
-```bash
-$ npm install -g mau
-$ mau deploy
-```
+| ADR | Decisão |
+|---|---|
+| [0001](docs/adr/0001-reserva-de-estoque-atomica-e-idempotente.md) | Reserva de estoque atômica e idempotente (⭐ requisito central) |
+| [0002](docs/adr/0002-classificacao-de-falhas-no-worker.md) | Classificação de falhas: negócio vs. técnica |
+| [0003](docs/adr/0003-worker-como-processo-separado.md) | Worker como processo separado da API |
+| [0004](docs/adr/0004-rabbitmq-com-retry-por-filas-de-atraso.md) | RabbitMQ com retry por filas de atraso e DLQ |
+| [0005](docs/adr/0005-transactional-outbox.md) | Transactional outbox para publicar sem dual write |
+| [0006](docs/adr/0006-jwt-proprio-com-roles.md) | JWT próprio com roles (SSO descrito abaixo) |
+| [0007](docs/adr/0007-typeorm-como-orm.md) | TypeORM como ORM |
+| [0008](docs/adr/0008-validacao-de-produto-no-post.md) | Validação de produto no `POST /orders` |
+| [0009](docs/adr/0009-registro-de-conta-e-softdelete-de-usuario.md) | Registro de conta, soft delete e troca de role com auditoria |
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Integração com SSO (Keycloak/Auth0)
 
-## Resources
+O teste pede JWT próprio com usuário de teste; SSO fica descrito, não implementado (trade-off em [ADR-0006](docs/adr/0006-jwt-proprio-com-roles.md)). Para trocar:
 
-Check out a few resources that may come in handy when working with NestJS:
+- `JwtStrategy` passa a validar RS256 com chaves do endpoint JWKS do provedor (`jwks-rsa`, com cache), em vez de segredo HS256 local.
+- Validação de `iss` e `aud`; roles extraídas de `realm_access.roles` (Keycloak) ou de claim customizada (Auth0).
+- `POST /auth/login` e `users.password_hash` deixam de existir; a API vira apenas *resource server*, o provedor cuida de autenticação.
+- `RolesGuard` e `@Roles()` não mudam — dependem só do payload decodificado, não de quem emitiu o token.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Impacto de indisponibilidade e mitigação: ver pergunta 4 em [`RESPOSTAS.md`](RESPOSTAS.md).
 
-## Support
+## Investigação com logs
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Pino (JSON) com `correlationId` propagado: request → `orders.correlation_id` → `outbox_events` → header da mensagem → logger filho no consumer. Eventos: `order.created`, `outbox.published`, `order.processing.started`, `order.retry.scheduled`, `order.processed`, `order.failed`, `order.dead_lettered` (seção 13 de `docs/ARCHITECTURE.md`).
 
-## Stay in touch
+Fluxo prático para "pedido X travado": filtrar por `correlationId` e ver onde a trilha para — detalhado na pergunta 5 de [`RESPOSTAS.md`](RESPOSTAS.md).
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## O que faria com mais tempo
 
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Regra de posse: `USER` só vê os próprios pedidos (`GET /orders` filtrado por `created_by`, exceto `ADMIN`).
+- Métricas (profundidade das filas, taxa de falha, latência de processamento) expostas em `/metrics` (Prometheus).
+- Job de limpeza do outbox (arquivar ou apagar eventos publicados antigos).
+- Refresh token e revogação — hoje o JWT expira em 15 min sem renovação.
+- Cache do `jwks-rsa` e circuit breaker explícitos, caso a integração com SSO (seção acima) seja implementada de fato.
