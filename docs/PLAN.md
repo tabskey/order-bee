@@ -61,9 +61,9 @@ Commits: `feat(processing): consume order.created`, `feat(stock): reserve stock 
 
 ## Etapa 6 — Falhas · Dia 4
 
-⬜ `decideFailureAction`, **teste de unidade primeiro**
-⬜ Retry por filas de atraso com `RETRY_DELAYS_MS` configurável (atraso no nome da fila), DLQ, simulação `"fail"`
-⬜ Integração: `"fail"` → tentativas esgotadas → `FAILED` com motivo + mensagem na DLQ (atrasos de ms, roda em < 1 s)
+✅ `decideFailureAction`, **teste de unidade primeiro**
+✅ Retry por filas de atraso com `RETRY_DELAYS_MS` configurável (atraso no nome da fila), DLQ, simulação `"fail"`
+✅ Integração: `"fail"` → tentativas esgotadas → `FAILED` com motivo + mensagem na DLQ (atrasos de ms, roda em < 1 s)
 
 Commits: `test(processing): cover failure decision`, `feat(processing): add delayed retry and dead-letter`
 
