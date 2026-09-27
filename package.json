@@ -25,7 +25,8 @@
     "test:e2e": "jest --config ./test/e2e/jest-e2e.json",
     "test:integration": "jest --config ./test/integration/jest-integration.json --passWithNoTests",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/shared/database/data-source.ts",
-    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/shared/database/data-source.ts"
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/shared/database/data-source.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/shared/database/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

@@ -18,8 +18,8 @@ Commits esperados: `chore: scaffold nestjs project`, `chore: add docker compose 
 
 ## Etapa 1 — Dados · Dia 1–2
 
-⬜ TypeORM + migrations: `users`, `products`, `orders`, `order_items`, `outbox_events` (tipos, FKs, CHECKs e índices da seção 5)
-⬜ Seed: dois usuários (USER, ADMIN) e produtos com estoque 5
+✅ TypeORM + migrations: `users`, `products`, `orders`, `order_items`, `outbox_events` (tipos, FKs, CHECKs e índices da seção 5)
+✅ Seed: dois usuários (USER, ADMIN) e produtos com estoque 5
 
 Commits: `feat(db): add initial schema migration`, `feat(db): add seed data`
 
