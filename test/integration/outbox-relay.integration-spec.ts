@@ -7,6 +7,10 @@ import type { StartedRabbitMQContainer } from '@testcontainers/rabbitmq';
 import { connect, ConsumeMessage } from 'amqplib';
 import { DataSource } from 'typeorm';
 import {
+  ORDERS_EXCHANGE,
+  ORDER_CREATED_ROUTING_KEY,
+} from '../../src/shared/messaging/topology';
+import {
   startTestDatabase,
   stopTestDatabase,
 } from '../e2e/support/mysql-test-database';
@@ -17,18 +21,25 @@ import {
 
 jest.setTimeout(120000);
 
-const ORDER_CREATED_QUEUE = 'order.created';
-
+// A dedicated exclusive queue bound to the exchange, not the real
+// `order.created` queue: the worker's own consumer (Etapa 5) also holds a
+// consumer there, and two consumers on one queue split deliveries.
 async function waitForMessage(
-  queue: string,
+  routingKey: string,
   timeoutMs: number,
 ): Promise<ConsumeMessage> {
   const connection = await connect(process.env.RABBITMQ_URL!);
   const channel = await connection.createChannel();
   try {
+    const { queue } = await channel.assertQueue('', {
+      exclusive: true,
+      autoDelete: true,
+    });
+    await channel.bindQueue(queue, ORDERS_EXCHANGE, routingKey);
+
     return await new Promise<ConsumeMessage>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error(`No message on ${queue} within ${timeoutMs}ms`));
+        reject(new Error(`No message on ${routingKey} within ${timeoutMs}ms`));
       }, timeoutMs);
 
       void channel.consume(
@@ -95,7 +106,7 @@ describe('Outbox relay (integration)', () => {
       ],
     );
 
-    const message = await waitForMessage(ORDER_CREATED_QUEUE, 5000);
+    const message = await waitForMessage(ORDER_CREATED_ROUTING_KEY, 5000);
 
     expect(JSON.parse(message.content.toString())).toEqual({
       orderId,
