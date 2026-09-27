@@ -28,6 +28,7 @@ Commits: `feat(db): add initial schema migration`, `feat(db): add seed data`
 ⬜ `calculateOrderTotal` em centavos, **teste de unidade primeiro**
 ⬜ `POST /orders`: DTO, validação de produto (422), transação order + items + outbox
 ⬜ e2e: POST → pedido `PENDING` + linha no outbox; 422 para produto inexistente
+⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders`
 
 Commits: `test(orders): cover order total calculation`, `feat(orders): create order with outbox event`
 
@@ -35,6 +36,7 @@ Commits: `test(orders): cover order total calculation`, `feat(orders): create or
 
 ⬜ `GET /orders/:id` (404 se não existe)
 ⬜ `GET /orders?page&limit` com limites (`limit` máx. 100) e metadados de paginação
+⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `GET /orders/:id` e `GET /orders`
 
 Commits: `feat(orders): add get and list endpoints`
 
@@ -67,6 +69,7 @@ Commits: `test(processing): cover failure decision`, `feat(processing): add dela
 
 ⬜ Login, `JwtStrategy`, `RolesGuard`, `@Roles()`
 ⬜ e2e: 401 sem token; 403 USER no reprocess
+⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/login` e `Bearer {{token}}` nas demais requests
 
 Commits: `feat(auth): add jwt login and role guard`
 
@@ -74,6 +77,7 @@ Commits: `feat(auth): add jwt login and role guard`
 
 ⬜ `POST /orders/:id/reprocess` (ADMIN; 409 se não estiver FAILED)
 ⬜ Swagger com auth configurada
+⬜ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /orders/:id/reprocess`
 
 Commits: `feat(orders): add manual reprocess endpoint`, `docs(api): add swagger`
 
