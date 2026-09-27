@@ -73,6 +73,12 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
         await this.publisher.publish(routingKey, event.payload, {
           'x-attempt': 0,
         });
+        this.logger.log({
+          event: 'outbox.published',
+          orderId: event.aggregateId,
+          correlationId: event.correlationId,
+          eventType: event.eventType,
+        });
       }
 
       await manager
