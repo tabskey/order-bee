@@ -21,6 +21,10 @@ export class RabbitmqConnection implements OnModuleDestroy {
     return this.connection.createChannel(options);
   }
 
+  isConnected(): boolean {
+    return this.connection.isConnected();
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.connection.close();
   }
