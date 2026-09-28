@@ -106,7 +106,21 @@ Commits: `docs: add readme`, `docs: answer architecture questions`
 
 ## Folga
 
-Dia 7 é reserva. Se sobrar tempo: métricas simples (profundidade da fila), limpeza do outbox, regra de posse (USER só vê os próprios pedidos).
+Dia 7 é reserva. Se sobrar tempo: métricas simples (profundidade da fila), limpeza do outbox.
+
+## Revisão sênior (critérios de avaliação)
+
+✅ Consumer: poison message vai para a DLQ; falha ao tratar erro faz `nack` com requeue (antes a mensagem ficava sem ack)
+✅ Correlation ID do cliente só aceito se for UUID (antes: 500 com header longo em `CHAR(36)`)
+✅ Paginação determinística (`created_at DESC, id DESC`)
+✅ Limites nos DTOs alinhados às colunas; `ParseUUIDPipe` em `:id`
+✅ `publishTimeout` no publisher: relay não segura transação com broker fora do ar
+✅ Google SSO: conta soft-deletada → 401; corrida no primeiro login não gera 500
+✅ Regra de posse: USER só vê os próprios pedidos (404 para os de outros), ADMIN vê todos
+✅ Testes: rollback de reserva multi-item, validações, correlation ID, posse, Google SSO
+✅ `JWT_EXPIRES_IN` padrão alinhado aos ADRs 0006/0009 (15 min)
+
+Commits: `fix(processing): never leave a message unacked`, `fix(logging): accept only uuid correlation ids`, `fix(orders): deterministic pagination and input bounds`, `fix(outbox): time out publishes while broker is down`, `fix(auth): handle soft-deleted and concurrent google logins`, `feat(orders): restrict users to their own orders`, `test(stock): prove multi-item reservation rolls back`, `docs: record trade-offs from senior review`
 
 ## Bônus extra — Login via Google (SSO real) · Dia 7+
 

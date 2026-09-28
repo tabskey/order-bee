@@ -174,11 +174,20 @@ As principais decisões estão registradas nos ADRs:
 | [0009](docs/adr/0009-registro-de-conta-e-softdelete-de-usuario.md) | Registro de conta, soft delete e troca de role com auditoria |
 | [0010](docs/adr/0010-login-via-google-sso.md) | Login via Google (SSO real, aditivo ao JWT local) |
 
+### ⚖️ Trade-offs reconhecidos
+
+- 👤 **Regra de posse:** `USER` só vê os próprios pedidos (`GET /orders` e `GET /orders/:id` filtrados por `created_by`); `ADMIN` vê todos. Pedido de outro usuário responde `404`, não `403`, para não revelar que o pedido existe.
+- 💲 **Preço vem do cliente:** o enunciado envia `price` no payload e `products` não tem coluna de preço. Aceitamos como especificado; em produção o preço viria do catálogo, nunca do cliente.
+- 🚫 **`FAIL_NOW` hoje não é alcançado no worker:** `InsufficientStockError` é tratado dentro de `StockService.reserve` (que marca `FAILED` na hora). O caminho continua em `decideFailureAction` para futuros erros de negócio ([ADR-0002](docs/adr/0002-classificacao-de-falhas-no-worker.md)).
+- ☠️ **Mensagem ilegível (poison message):** payload que não é JSON vai direto para a DLQ (`order.poison_message` no log), sem retry — tentar de novo não ajuda.
+- 🧾 **Correlation ID do cliente:** o header `x-correlation-id` só é aceito se for UUID; qualquer outro valor é substituído por um novo, porque vai para colunas `CHAR(36)` e para os logs.
+- ⏱️ **Outbox com broker fora do ar:** `publishTimeout` de 5 s faz o relay desistir e liberar a transação (e os locks) em vez de esperar o broker voltar; o próximo tick tenta de novo.
+
 ---
 
 ## 🔐 Login via Google (SSO real)
 
-Bônus implementado: `POST /auth/google` recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* do usuário local pelo e-mail verificado (cria com `role: 'USER'` se não existir). Emite o mesmo JWT HS256 de `POST /auth/login` — é aditivo, login local continua funcionando. Decisão e alternativas em [ADR-0010](docs/adr/0010-login-via-google-sso.md).
+Bônus implementado: `POST /auth/google` recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* do usuário local pelo e-mail verificado (cria com `role: 'USER'` se não existir). Conta soft-deletada não volta via Google (`401`), e dois primeiros logins simultâneos com o mesmo e-mail reaproveitam a mesma conta. Emite o mesmo JWT HS256 de `POST /auth/login` — é aditivo, login local continua funcionando. Decisão e alternativas em [ADR-0010](docs/adr/0010-login-via-google-sso.md).
 
 ```bash
 curl -X POST {{baseUrl}}/auth/google \
@@ -244,7 +253,6 @@ O fluxo de investigação está detalhado na pergunta 5 de [`RESPOSTAS.md`](RESP
 
 A colmeia ainda pode crescer. Algumas evoluções planejadas:
 
-- 👤 **Regra de posse:** `USER` só vê os próprios pedidos (`GET /orders` filtrado por `created_by`), exceto `ADMIN`.
 - 📊 **Métricas:** profundidade das filas, taxa de falha e latência de processamento expostas em `/metrics` (Prometheus).
 - 🧹 **Limpeza do outbox:** job para arquivar ou apagar eventos publicados antigos.
 - 🔄 **Refresh token e revogação:** atualmente o JWT expira em 15 min sem renovação.

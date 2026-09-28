@@ -158,7 +158,7 @@ erDiagram
 | Estoque | `CHECK (stock >= 0)` | Defesa em profundidade: o banco recusa negativo mesmo com bug |
 | ID do pedido | UUID `CHAR(36)` | Não enumerável. Trade-off: `BINARY(16)` indexa melhor |
 | Preço | `unit_price` congelado no item | Histórico não muda com o catálogo |
-| `created_by` | FK para `users` | Auditoria de quem criou; base para regra de posse no futuro |
+| `created_by` | FK para `users` | Auditoria de quem criou; regra de posse: `USER` só lê os próprios pedidos (404 para os de outros), `ADMIN` lê todos |
 | `outbox_events.id` | `BIGINT` autoincremento | Garante ordem de publicação |
 | Índices | `orders(status, created_at)`, `orders(created_at, id)`, `products(name)` único, `outbox_events(published_at, id)` | Busca de travados, paginação, lookup, relay |
 
