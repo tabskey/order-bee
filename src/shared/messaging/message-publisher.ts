@@ -5,6 +5,8 @@ import type { EnvConfig } from '../config/env.schema';
 import { RabbitmqConnection } from './rabbitmq-connection';
 import { declareTopology, ORDERS_EXCHANGE } from './topology';
 
+const PUBLISH_TIMEOUT_MS = 5000;
+
 @Injectable()
 export class MessagePublisher implements OnModuleInit {
   private readonly channel: ChannelWrapper;
@@ -16,6 +18,9 @@ export class MessagePublisher implements OnModuleInit {
     const retryDelaysMs = config.get('RETRY_DELAYS_MS', { infer: true });
     this.channel = rabbit.createChannel({
       json: true,
+      // The outbox relay publishes inside a DB transaction: fail fast while
+      // the broker is down instead of holding row locks until it returns.
+      publishTimeout: PUBLISH_TIMEOUT_MS,
       setup: (channel) => declareTopology(channel, retryDelaysMs),
     });
   }
