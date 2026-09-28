@@ -56,22 +56,34 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Google ID token');
     }
 
-    let user = await this.users.findOneBy({ email: payload.email });
-    if (!user) {
-      // ponytail: placeholder hash keeps password_hash NOT NULL without a schema
-      // change; Google-provisioned users just never log in with a password.
-      const passwordHash = await hashPassword(randomUUID());
-      const inserted = await this.users.insert({
-        email: payload.email,
-        passwordHash,
-        role: 'USER',
-      });
-      user = await this.users.findOneByOrFail({
-        id: inserted.identifiers[0].id as number,
-      });
+    const user =
+      (await this.findByEmailWithDeleted(payload.email)) ??
+      (await this.provisionGoogleUser(payload.email));
+    // A soft-deleted account must not come back through SSO (ADR-0009).
+    if (user.deletedAt) {
+      throw new UnauthorizedException('Account disabled');
     }
 
     return { accessToken: this.signToken(user) };
+  }
+
+  private findByEmailWithDeleted(email: string): Promise<UserEntity | null> {
+    return this.users.findOne({ where: { email }, withDeleted: true });
+  }
+
+  private async provisionGoogleUser(email: string): Promise<UserEntity> {
+    // ponytail: placeholder hash keeps password_hash NOT NULL without a schema
+    // change; Google-provisioned users just never log in with a password.
+    const passwordHash = await hashPassword(randomUUID());
+    try {
+      await this.users.insert({ email, passwordHash, role: 'USER' });
+    } catch (error) {
+      // Concurrent first login with the same email: the other request won.
+      if ((error as { code?: string }).code !== 'ER_DUP_ENTRY') {
+        throw error;
+      }
+    }
+    return this.users.findOneOrFail({ where: { email }, withDeleted: true });
   }
 
   private signToken(user: UserEntity): string {

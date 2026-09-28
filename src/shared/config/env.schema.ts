@@ -48,7 +48,7 @@ export class EnvConfig {
   JWT_SECRET: string;
 
   @IsString()
-  JWT_EXPIRES_IN = '1h';
+  JWT_EXPIRES_IN = '15m';
 
   @IsString()
   @IsNotEmpty()

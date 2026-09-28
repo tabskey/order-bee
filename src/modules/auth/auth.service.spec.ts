@@ -51,13 +51,13 @@ describe('AuthService.loginWithGoogle', () => {
       getPayload: () => ({ email: 'new@test.local', email_verified: true }),
     });
     const insert = jest.fn().mockResolvedValue({ identifiers: [{ id: 7 }] });
-    const findOneBy = jest.fn().mockResolvedValue(null);
-    const findOneByOrFail = jest.fn().mockResolvedValue({
+    const findOne = jest.fn().mockResolvedValue(null);
+    const findOneOrFail = jest.fn().mockResolvedValue({
       id: 7,
       email: 'new@test.local',
       role: 'USER',
     });
-    const service = buildService({ insert, findOneBy, findOneByOrFail });
+    const service = buildService({ insert, findOne, findOneOrFail });
 
     const result = await service.loginWithGoogle({ idToken: 'ok' });
 
@@ -72,16 +72,57 @@ describe('AuthService.loginWithGoogle', () => {
       getPayload: () => ({ email: 'known@test.local', email_verified: true }),
     });
     const insert = jest.fn();
-    const findOneBy = jest.fn().mockResolvedValue({
+    const findOne = jest.fn().mockResolvedValue({
       id: 3,
       email: 'known@test.local',
       role: 'ADMIN',
     });
-    const service = buildService({ insert, findOneBy });
+    const service = buildService({ insert, findOne });
 
     const result = await service.loginWithGoogle({ idToken: 'ok' });
 
     expect(insert).not.toHaveBeenCalled();
+    expect(result.accessToken).toBeDefined();
+  });
+
+  it('rejects a soft-deleted account instead of re-provisioning it', async () => {
+    verifyIdToken.mockResolvedValue({
+      getPayload: () => ({ email: 'gone@test.local', email_verified: true }),
+    });
+    const insert = jest.fn();
+    const findOne = jest.fn().mockResolvedValue({
+      id: 4,
+      email: 'gone@test.local',
+      role: 'USER',
+      deletedAt: new Date(),
+    });
+    const service = buildService({ insert, findOne });
+
+    await expect(
+      service.loginWithGoogle({ idToken: 'ok' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('reuses the user created by a concurrent first login (duplicate email)', async () => {
+    verifyIdToken.mockResolvedValue({
+      getPayload: () => ({ email: 'race@test.local', email_verified: true }),
+    });
+    const insert = jest
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('dup'), { code: 'ER_DUP_ENTRY' }),
+      );
+    const findOne = jest.fn().mockResolvedValue(null);
+    const findOneOrFail = jest.fn().mockResolvedValue({
+      id: 9,
+      email: 'race@test.local',
+      role: 'USER',
+    });
+    const service = buildService({ insert, findOne, findOneOrFail });
+
+    const result = await service.loginWithGoogle({ idToken: 'ok' });
+
     expect(result.accessToken).toBeDefined();
   });
 });
