@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isUUID } from 'class-validator';
 import { LoggerModule } from 'nestjs-pino';
 import type { EnvConfig } from '../config/env.schema';
 
@@ -16,10 +17,12 @@ import type { EnvConfig } from '../config/env.schema';
           pinoHttp: {
             level: config.get('LOG_LEVEL', { infer: true }),
             genReqId: (req, res) => {
-              const existing = req.headers[correlationIdHeader];
-              const correlationId = Array.isArray(existing)
-                ? existing[0]
-                : (existing ?? randomUUID());
+              const header = req.headers[correlationIdHeader];
+              const existing = Array.isArray(header) ? header[0] : header;
+              // Stored in CHAR(36) columns and echoed into logs: only a UUID
+              // from the client is trusted, anything else gets a fresh one.
+              const correlationId =
+                existing && isUUID(existing) ? existing : randomUUID();
               res.setHeader(correlationIdHeader, correlationId);
               return correlationId;
             },
