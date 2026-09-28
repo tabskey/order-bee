@@ -233,10 +233,9 @@ describe('Orders (e2e)', () => {
         items: [{ productName: 'Widget', quantity: 2, price: 19.9 }],
       })
       .expect(201);
-    await dataSource.query(
-      "UPDATE orders SET status = 'FAILED' WHERE id = ?",
-      [created.body.id],
-    );
+    await dataSource.query("UPDATE orders SET status = 'FAILED' WHERE id = ?", [
+      created.body.id,
+    ]);
 
     return request(app.getHttpServer())
       .post(`/orders/${created.body.id}/reprocess`)
@@ -258,6 +257,100 @@ describe('Orders (e2e)', () => {
       .post(`/orders/${created.body.id}/reprocess`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(409);
+  });
+
+  it('rejects an oversized customerName with 400 instead of a DB error', () => {
+    return request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        customerName: 'x'.repeat(256),
+        items: [{ productName: 'Widget', quantity: 1, price: 10 }],
+      })
+      .expect(400);
+  });
+
+  it('rejects a non-UUID order id with 400', () => {
+    return request(app.getHttpServer())
+      .get('/orders/not-a-uuid')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
+  it('replaces a non-UUID correlation id instead of storing it', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .set('x-correlation-id', 'x'.repeat(100))
+      .send({
+        customerName: 'Alice',
+        items: [{ productName: 'Widget', quantity: 1, price: 10 }],
+      })
+      .expect(201);
+
+    const correlationId = response.headers['x-correlation-id'];
+    expect(correlationId).toMatch(/^[0-9a-f-]{36}$/);
+    const [order] = await dataSource.query(
+      'SELECT correlation_id FROM orders WHERE id = ?',
+      [response.body.id],
+    );
+    expect(order.correlation_id).toBe(correlationId);
+  });
+
+  describe('ownership', () => {
+    const otherUserToken = () =>
+      sign(
+        { sub: 3, email: 'other@test.local', role: 'USER' },
+        process.env.JWT_SECRET ?? 'change-me',
+        { expiresIn: '15m' },
+      );
+
+    async function createOrderAsUser1(): Promise<string> {
+      const created = await request(app.getHttpServer())
+        .post('/orders')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          customerName: 'Alice',
+          items: [{ productName: 'Widget', quantity: 1, price: 10 }],
+        })
+        .expect(201);
+      return created.body.id;
+    }
+
+    it("returns 404 when a USER reads another user's order", async () => {
+      const orderId = await createOrderAsUser1();
+
+      await request(app.getHttpServer())
+        .get(`/orders/${orderId}`)
+        .set('Authorization', `Bearer ${otherUserToken()}`)
+        .expect(404);
+    });
+
+    it('lists only the orders the USER created', async () => {
+      await createOrderAsUser1();
+
+      const response = await request(app.getHttpServer())
+        .get('/orders')
+        .set('Authorization', `Bearer ${otherUserToken()}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(0);
+      expect(response.body.meta.total).toBe(0);
+    });
+
+    it("lets an ADMIN read any user's order", async () => {
+      const orderId = await createOrderAsUser1();
+
+      await request(app.getHttpServer())
+        .get(`/orders/${orderId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const list = await request(app.getHttpServer())
+        .get('/orders')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(list.body.meta.total).toBe(1);
+    });
   });
 
   it('returns 404 reprocessing a nonexistent order', () => {

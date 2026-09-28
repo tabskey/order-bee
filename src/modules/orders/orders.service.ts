@@ -4,12 +4,18 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import type { AuthenticatedUser } from '../auth/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './domain/order-status.enum';
 import { OrderNotFailedError } from './errors/order-not-failed.error';
 import { OrderNotFoundError } from './errors/order-not-found.error';
 import { ProductsNotFoundError } from './errors/products-not-found.error';
 import { OrdersRepository } from './orders.repository';
+
+// ADMIN sees every order; USER only the ones they created.
+function ownerFilter(user: AuthenticatedUser): number | undefined {
+  return user.role === 'ADMIN' ? undefined : user.userId;
+}
 
 @Injectable()
 export class OrdersService {
@@ -34,8 +40,9 @@ export class OrdersService {
     }
   }
 
-  async findById(id: string) {
-    const result = await this.ordersRepository.findById(id);
+  // Another user's order is a 404, not a 403: existence must not leak.
+  async findById(id: string, user: AuthenticatedUser) {
+    const result = await this.ordersRepository.findById(id, ownerFilter(user));
     if (!result) {
       throw new NotFoundException(`Order ${id} not found`);
     }
@@ -76,8 +83,12 @@ export class OrdersService {
     return { id, status: OrderStatus.PENDING };
   }
 
-  async list(page: number, limit: number) {
-    const { orders, total } = await this.ordersRepository.findPage(page, limit);
+  async list(page: number, limit: number, user: AuthenticatedUser) {
+    const { orders, total } = await this.ordersRepository.findPage(
+      page,
+      limit,
+      ownerFilter(user),
+    );
     return {
       data: orders.map((order) => ({
         id: order.id,

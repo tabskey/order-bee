@@ -39,13 +39,19 @@ export class OrdersController {
   }
 
   @Get()
-  list(@Query() query: ListOrdersQueryDto) {
-    return this.ordersService.list(query.page, query.limit);
+  list(
+    @Query() query: ListOrdersQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.list(query.page, query.limit, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.findById(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.findById(id, user);
   }
 
   @UseGuards(RolesGuard)

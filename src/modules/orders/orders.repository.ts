@@ -89,9 +89,14 @@ export class OrdersRepository {
     });
   }
 
-  async findById(id: string): Promise<OrderWithItems | null> {
+  // `createdBy` undefined = no ownership filter (ADMIN).
+  async findById(
+    id: string,
+    createdBy?: number,
+  ): Promise<OrderWithItems | null> {
     const order = await this.dataSource.manager.findOneBy(OrderEntity, {
       id,
+      createdBy,
     });
     if (!order) {
       return null;
@@ -140,10 +145,12 @@ export class OrdersRepository {
   async findPage(
     page: number,
     limit: number,
+    createdBy?: number,
   ): Promise<{ orders: OrderEntity[]; total: number }> {
     const [orders, total] = await this.dataSource.manager.findAndCount(
       OrderEntity,
       {
+        where: { createdBy },
         // `id` breaks ties: DATETIME has second precision, so without it
         // rows created in the same second can repeat or vanish across pages.
         order: { createdAt: 'DESC', id: 'DESC' },
