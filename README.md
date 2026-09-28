@@ -172,12 +172,23 @@ As principais decisões estão registradas nos ADRs:
 | [0007](docs/adr/0007-typeorm-como-orm.md) | TypeORM como ORM |
 | [0008](docs/adr/0008-validacao-de-produto-no-post.md) | Validação de produto no `POST /orders` |
 | [0009](docs/adr/0009-registro-de-conta-e-softdelete-de-usuario.md) | Registro de conta, soft delete e troca de role com auditoria |
+| [0010](docs/adr/0010-login-via-google-sso.md) | Login via Google (SSO real, aditivo ao JWT local) |
 
 ---
 
-## 🔐 Integração com SSO (Keycloak/Auth0)
+## 🔐 Login via Google (SSO real)
 
-O teste pede JWT próprio com usuário de teste; SSO fica **descrito, não implementado**. Esse trade-off está documentado no [ADR-0006](docs/adr/0006-jwt-proprio-com-roles.md).
+Bônus implementado: `POST /auth/google` recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* do usuário local pelo e-mail verificado (cria com `role: 'USER'` se não existir). Emite o mesmo JWT HS256 de `POST /auth/login` — é aditivo, login local continua funcionando. Decisão e alternativas em [ADR-0010](docs/adr/0010-login-via-google-sso.md).
+
+```bash
+curl -X POST {{baseUrl}}/auth/google \
+  -H "Content-Type: application/json" \
+  -d '{"idToken": "<google-id-token>"}'
+```
+
+## 🔐 Integração com Keycloak/Auth0 (full resource-server)
+
+O teste pede JWT próprio com usuário de teste; SSO completo (multi-provedor, resource-server) fica **descrito, não implementado**. Esse trade-off está documentado no [ADR-0006](docs/adr/0006-jwt-proprio-com-roles.md).
 
 Para trocar a autenticação atual:
 
@@ -237,7 +248,8 @@ A colmeia ainda pode crescer. Algumas evoluções planejadas:
 - 📊 **Métricas:** profundidade das filas, taxa de falha e latência de processamento expostas em `/metrics` (Prometheus).
 - 🧹 **Limpeza do outbox:** job para arquivar ou apagar eventos publicados antigos.
 - 🔄 **Refresh token e revogação:** atualmente o JWT expira em 15 min sem renovação.
-- 🔐 **SSO resiliente:** cache do `jwks-rsa` e circuit breaker explícitos caso a integração com SSO seja implementada de fato.
+- 🔐 **Google SSO — link/unlink de conta:** hoje o e-mail verificado pelo Google casa automaticamente com uma conta local existente; um fluxo explícito de vincular/desvincular deixaria essa superfície de confiança mais visível para o usuário.
+- 🔐 **SSO resiliente (Keycloak/Auth0):** cache do `jwks-rsa` e circuit breaker explícitos caso a integração completa do ADR-0006 seja implementada de fato.
 
 ---
 

@@ -42,6 +42,8 @@ Depende de qual parte do SSO cai:
 
 No modelo atual (ADR-0006), a API não tem esse risco porque emite e valida o próprio JWT; é o trade-off registrado ali — a migração para SSO real (descrita no README) precisa levar esse cache junto.
 
+O bônus de login via Google ([ADR-0010](docs/adr/0010-login-via-google-sso.md)) não muda essa análise: é aditivo, não o full resource-server do ADR-0006. Se o Google cair, só `POST /auth/google` fica indisponível — `POST /auth/login` continua funcionando normalmente para quem tem senha local, porque a API ainda emite e valida o próprio JWT nos dois casos.
+
 ## 5. Dado um pedido que ficou "travado" sem confirmação, como você investigaria se o problema está na API, na fila ou no worker?
 
 Trilha por `correlationId` (seção 13 de `docs/ARCHITECTURE.md`), do início ao fim:

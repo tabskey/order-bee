@@ -81,6 +81,29 @@
       }
     },
     {
+      "name": "Login with Google",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('token', body.accessToken);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/google",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idToken\": \"<google-id-token>\"\n}"
+        }
+      }
+    },
+    {
       "name": "Register",
       "request": {
         "method": "POST",

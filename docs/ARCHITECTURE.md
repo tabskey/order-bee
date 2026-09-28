@@ -335,6 +335,7 @@ JWT HS256 emitido por `POST /auth/login`, validado por `JwtStrategy`; `RolesGuar
 | Endpoint | Público | USER | ADMIN |
 |---|---|---|---|
 | `POST /auth/register` | ✅ | — | — |
+| `POST /auth/google` | ✅ | — | — |
 | `POST /orders` | ❌ | ✅ | ✅ |
 | `GET /orders`, `GET /orders/:id` | ❌ | ✅ | ✅ |
 | `POST /orders/:id/reprocess` | ❌ | ❌ 403 | ✅ |
@@ -343,7 +344,9 @@ JWT HS256 emitido por `POST /auth/login`, validado por `JwtStrategy`; `RolesGuar
 
 `POST /auth/register` (pública) cria conta com `role` sempre `USER`; `role` não é aceito no payload. `DELETE /users/:id` (ADMIN) é **soft delete**: seta `users.deleted_at` via `@DeleteDateColumn`, nunca remove a linha — `orders.created_by` continua íntegro; login exclui automaticamente usuários soft-deletados. `PATCH /users/:id/role` (ADMIN) troca a role de outro usuário e grava uma linha em `user_role_changes` (quem, de quem, role antes/depois, quando) na mesma transação — é o único caminho para criar uma nova conta `ADMIN` fora do seed. Nenhuma dessas duas rotas ADMIN permite que o admin altere a própria conta (`400` se `:id` for o próprio autenticado), para evitar lockout. Detalhes e trade-offs em [ADR-0009](adr/0009-registro-de-conta-e-softdelete-de-usuario.md).
 
-Usuários de teste criados por seed. Integração com Keycloak descrita no README ([ADR-0006](adr/0006-jwt-proprio-com-roles.md)).
+`POST /auth/google` (pública) recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* de usuário local pelo e-mail verificado: se não existir, cria com `role: 'USER'` e um `password_hash` placeholder (login local por senha nunca vai funcionar para essa conta); se existir, reusa. Emite o mesmo JWT HS256 de `POST /auth/login` — `JwtStrategy`, `RolesGuard` e `@Roles()` não mudam. É aditivo ao login local, não o substitui. Decisão e alternativas em [ADR-0010](adr/0010-login-via-google-sso.md).
+
+Usuários de teste criados por seed. Integração com Keycloak/Auth0 (full resource-server) continua só descrita no README ([ADR-0006](adr/0006-jwt-proprio-com-roles.md)).
 
 ## 13. Observabilidade
 

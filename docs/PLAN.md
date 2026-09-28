@@ -107,3 +107,15 @@ Commits: `docs: add readme`, `docs: answer architecture questions`
 ## Folga
 
 Dia 7 é reserva. Se sobrar tempo: métricas simples (profundidade da fila), limpeza do outbox, regra de posse (USER só vê os próprios pedidos).
+
+## Bônus extra — Login via Google (SSO real) · Dia 7+
+
+✅ ADR-0010: login via Google além do JWT local (estende ADR-0006, aprovado)
+✅ ⚠️ Nova dependência de produção: `google-auth-library` (verificação oficial de ID token do Google) — aprovada pelo usuário, instalada
+✅ `POST /auth/google` — recebe `idToken` do Google, valida via JWKS oficial, upsert de usuário local por e-mail (role padrão USER), emite o mesmo JWT HS256 já usado hoje
+✅ Teste de unidade: validação do ID token e mapeamento para usuário (mock do client do Google)
+✅ e2e: login com Google cria usuário novo; login repetido reusa o mesmo usuário; token do Google inválido → 401
+✅ Atualizar `docs/postman/order-bee.postman_collection.json` com `POST /auth/google`
+✅ Atualizar `docs/ARCHITECTURE.md` §12 e README (seção "Integração com SSO") com o fluxo real implementado
+
+Commits: `docs(adr): propose google sso login`, `feat(auth): add google sso login`, `test(auth): cover google sso login`, `docs: update postman and architecture for google sso`
