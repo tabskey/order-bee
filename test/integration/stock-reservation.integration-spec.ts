@@ -151,6 +151,45 @@ describe('Stock reservation (integration)', () => {
     expect(failedOrders[0].failure_reason).toBe('estoque insuficiente');
   });
 
+  it('rolls back every decrement when a later item lacks stock, and a retry changes nothing', async () => {
+    const userId = await insertUser(dataSource);
+    const enough = await insertProduct(dataSource, 5);
+    const scarce = await insertProduct(dataSource, 1);
+    const orderId = await insertPendingOrder(dataSource, {
+      createdBy: userId,
+      productId: enough,
+      quantity: 2,
+    });
+    // Second item on the same order; `scarce` has a higher id, so it is
+    // reserved after `enough` already got decremented inside the tx.
+    await dataSource.query(
+      `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+       VALUES (?, ?, ?, ?)`,
+      [orderId, scarce, 2, '5.00'],
+    );
+
+    expect(await stockService.reserve(orderId)).toBe(
+      ReserveResult.INSUFFICIENT_STOCK,
+    );
+    // Redelivery after the failure: the claim finds no PENDING order.
+    expect(await stockService.reserve(orderId)).toBe(
+      ReserveResult.ALREADY_PROCESSED,
+    );
+
+    const stocks = await dataSource.query(
+      'SELECT id, stock FROM products WHERE id IN (?, ?) ORDER BY id',
+      [enough, scarce],
+    );
+    expect(stocks.map((p: { stock: number }) => p.stock)).toEqual([5, 1]);
+
+    const [order] = await dataSource.query(
+      'SELECT status, failure_reason FROM orders WHERE id = ?',
+      [orderId],
+    );
+    expect(order.status).toBe('FAILED');
+    expect(order.failure_reason).toBe('estoque insuficiente');
+  });
+
   it('redelivery of an already PROCESSED order does not change stock again', async () => {
     const userId = await insertUser(dataSource);
     const productId = await insertProduct(dataSource, 5);
