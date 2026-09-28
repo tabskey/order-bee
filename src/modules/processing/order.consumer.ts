@@ -56,14 +56,51 @@ export class OrderCreatedConsumer implements OnModuleInit {
       return;
     }
 
-    const event = JSON.parse(message.content.toString()) as OrderCreatedEvent;
+    let event: OrderCreatedEvent;
+    try {
+      event = JSON.parse(message.content.toString()) as OrderCreatedEvent;
+    } catch {
+      this.deadLetterPoisonMessage(channel, message);
+      return;
+    }
 
     try {
       await this.processing.process(event);
       channel.ack(message);
     } catch (error) {
-      await this.handleFailure(channel, message, event, error);
+      try {
+        await this.handleFailure(channel, message, event, error);
+      } catch (handlingError) {
+        // e.g. DB down while marking FAILED: requeue instead of leaving the
+        // message unacked until the channel drops.
+        this.logger.error(
+          {
+            event: 'order.failure_handling_failed',
+            orderId: event.orderId,
+            correlationId: event.correlationId,
+          },
+          handlingError,
+        );
+        channel.nack(message, false, true);
+      }
     }
+  }
+
+  // Unparseable payload: retrying cannot help. Raw channel publish keeps the
+  // original bytes (the json wrapper would re-encode the Buffer).
+  private deadLetterPoisonMessage(
+    channel: Channel,
+    message: ConsumeMessage,
+  ): void {
+    channel.publish(DEAD_LETTER_EXCHANGE, '', message.content, {
+      persistent: true,
+      headers: message.properties.headers,
+    });
+    this.logger.error({
+      event: 'order.poison_message',
+      content: message.content.toString().slice(0, 200),
+    });
+    channel.ack(message);
   }
 
   private async handleFailure(
