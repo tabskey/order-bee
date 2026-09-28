@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -43,7 +44,7 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findById(id);
   }
 
@@ -51,7 +52,7 @@ export class OrdersController {
   @Roles('ADMIN')
   @Post(':id/reprocess')
   reprocess(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() request: Request & { id?: string },
   ) {
     const correlationId = request.id ?? randomUUID();

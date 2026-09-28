@@ -115,7 +115,11 @@ export class OrdersRepository {
       const result = await manager
         .createQueryBuilder()
         .update(OrderEntity)
-        .set({ status: OrderStatus.PENDING, failureReason: null, processedAt: null })
+        .set({
+          status: OrderStatus.PENDING,
+          failureReason: null,
+          processedAt: null,
+        })
         .where('id = :id', { id })
         .andWhere('status = :status', { status: OrderStatus.FAILED })
         .execute();
@@ -140,7 +144,9 @@ export class OrdersRepository {
     const [orders, total] = await this.dataSource.manager.findAndCount(
       OrderEntity,
       {
-        order: { createdAt: 'DESC' },
+        // `id` breaks ties: DATETIME has second precision, so without it
+        // rows created in the same second can repeat or vanish across pages.
+        order: { createdAt: 'DESC', id: 'DESC' },
         skip: (page - 1) * limit,
         take: limit,
       },

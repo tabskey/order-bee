@@ -4,6 +4,7 @@ import {
   IsArray,
   IsNotEmpty,
   IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { CreateOrderItemDto } from './create-order-item.dto';
@@ -11,6 +12,7 @@ import { CreateOrderItemDto } from './create-order-item.dto';
 export class CreateOrderDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   customerName: string;
 
   @IsArray()
