@@ -238,6 +238,7 @@ Eventos registrados:
 - `order.processed`
 - `order.failed`
 - `order.dead_lettered`
+- `order.poison_message` (payload ilegível, vai direto para a DLQ)
 
 A definição completa está na seção 13 de `docs/ARCHITECTURE.md`.
 

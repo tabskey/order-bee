@@ -352,7 +352,7 @@ Usuários de teste criados por seed. Integração com Keycloak/Auth0 (full resou
 
 - Pino com logs JSON; `x-correlation-id` lido ou gerado na API.
 - O correlation ID viaja: request → `orders.correlation_id` → `outbox_events` → header da mensagem → logger filho no consumer.
-- Eventos de log: `order.created`, `outbox.published`, `order.processing.started`, `order.retry.scheduled`, `order.processed`, `order.failed`, `order.dead_lettered`.
+- Eventos de log: `order.created`, `outbox.published`, `order.processing.started`, `order.retry.scheduled`, `order.processed`, `order.failed`, `order.dead_lettered`, `order.poison_message` (payload ilegível, direto para a DLQ).
 
 "Pedido X ficou PENDING por 10 minutos": filtra pelo correlation ID. Sem `outbox.published` → relay parado (confere `outbox_events.published_at`). Publicado sem `processing.started` → fila ou worker (painel do RabbitMQ: mensagens prontas, consumers conectados). `retry.scheduled` repetido → falha técnica recorrente, motivo no log. `started` sem desfecho → worker caiu no meio (a mensagem sem ack volta para a fila).
 
