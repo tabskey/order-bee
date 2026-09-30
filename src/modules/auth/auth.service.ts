@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,6 +23,7 @@ import type { JwtPayload, UserRole } from './jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly googleClient: OAuth2Client;
 
   constructor(
@@ -50,7 +52,10 @@ export class AuthService {
         idToken: dto.idToken,
         audience: this.config.get('GOOGLE_CLIENT_ID'),
       })
-      .catch(() => null);
+      .catch((err: Error) => {
+        this.logger.warn(`Google ID token rejected: ${err.message}`);
+        return null;
+      });
     const payload = ticket?.getPayload();
     if (!payload?.email || !payload.email_verified) {
       throw new UnauthorizedException('Invalid Google ID token');
