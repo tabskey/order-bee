@@ -93,7 +93,7 @@ describe('Orders (e2e)', () => {
       [response.body.id],
     );
     expect(order.status).toBe('PENDING');
-    expect(Number(order.total)).toBeCloseTo(39.8);
+    expect(order.total).toBe('39.80');
 
     const outboxRows = await dataSource.query(
       'SELECT event_type, aggregate_id FROM outbox_events WHERE aggregate_id = ?',
@@ -120,6 +120,37 @@ describe('Orders (e2e)', () => {
     return request(app.getHttpServer())
       .post('/orders')
       .send({ customerName: 'Alice', items: [] })
+      .expect(401);
+  });
+
+  it('rejects a token signed with another secret', () => {
+    const forged = sign(
+      { sub: 1, email: 'user@test.local', role: 'USER' },
+      'not-the-secret',
+      { expiresIn: '15m' },
+    );
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${forged}`)
+      .expect(401);
+  });
+
+  it('rejects an expired token', () => {
+    const expired = sign(
+      { sub: 1, email: 'user@test.local', role: 'USER' },
+      process.env.JWT_SECRET ?? 'change-me',
+      { expiresIn: -10 },
+    );
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Bearer ${expired}`)
+      .expect(401);
+  });
+
+  it('rejects a non-Bearer authorization header', () => {
+    return request(app.getHttpServer())
+      .get('/orders')
+      .set('Authorization', `Basic ${token}`)
       .expect(401);
   });
 
@@ -253,10 +284,19 @@ describe('Orders (e2e)', () => {
       })
       .expect(201);
 
-    return request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post(`/orders/${created.body.id}/reprocess`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(409);
+
+    expect(response.body.message).toContain('status is PENDING');
+  });
+
+  it('rejects reprocess of a nonexistent order with 404', () => {
+    return request(app.getHttpServer())
+      .post('/orders/00000000-0000-0000-0000-000000000000/reprocess')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
   });
 
   it('rejects an oversized customerName with 400 instead of a DB error', () => {

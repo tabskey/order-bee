@@ -55,12 +55,4 @@ export class OrderProcessingService {
       throw new SimulatedProcessingError(orderId);
     }
   }
-
-  async markFailed(orderId: string, reason: string): Promise<void> {
-    await this.dataSource.query(
-      `UPDATE orders SET status = 'FAILED', failure_reason = ?
-       WHERE id = ? AND status = 'PENDING'`,
-      [reason, orderId],
-    );
-  }
 }

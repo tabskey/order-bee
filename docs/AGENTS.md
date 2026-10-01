@@ -38,7 +38,7 @@ npm run migration:run
 5. **Proibido verificar estoque antes de tentar reservar.** A verificação é o próprio `UPDATE ... WHERE stock >= ?`. Checagem prévia reabre a race condition.
 6. Reservas percorrem itens em **ordem crescente de `product_id`**.
 7. UPDATEs de estoque e transições de status usam SQL/QueryBuilder explícito com `WHERE` condicional e checagem de `affected`. Nunca `repository.save()` nesses pontos.
-8. Todo erro de negócio estende `BusinessError`. `throw new Error()` genérico vira retry (ADR-0002).
+8. Falha de negócio no worker é tratada dentro do `StockService` via `ReserveResult`. Qualquer exceção que chega ao consumer é técnica e vira retry (ADR-0012).
 9. Mensagens carregam só identificadores (`orderId`, `correlationId`). O banco é a fonte da verdade.
 10. Nada de lógica de processamento em controller ou no service de criação.
 

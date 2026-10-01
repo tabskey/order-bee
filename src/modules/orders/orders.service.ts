@@ -1,15 +1,7 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/jwt-payload.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus } from './domain/order-status.enum';
-import { OrderNotFailedError } from './errors/order-not-failed.error';
-import { OrderNotFoundError } from './errors/order-not-found.error';
-import { ProductsNotFoundError } from './errors/products-not-found.error';
 import { OrdersRepository } from './orders.repository';
 
 // ADMIN sees every order; USER only the ones they created.
@@ -21,23 +13,12 @@ function ownerFilter(user: AuthenticatedUser): number | undefined {
 export class OrdersService {
   constructor(private readonly ordersRepository: OrdersRepository) {}
 
-  async create(
+  create(
     dto: CreateOrderDto,
     createdBy: number,
     correlationId: string,
   ): Promise<{ id: string; status: OrderStatus }> {
-    try {
-      return await this.ordersRepository.create({
-        dto,
-        createdBy,
-        correlationId,
-      });
-    } catch (error) {
-      if (error instanceof ProductsNotFoundError) {
-        throw new UnprocessableEntityException(error.message);
-      }
-      throw error;
-    }
+    return this.ordersRepository.create({ dto, createdBy, correlationId });
   }
 
   // Another user's order is a 404, not a 403: existence must not leak.
@@ -69,17 +50,7 @@ export class OrdersService {
     id: string,
     correlationId: string,
   ): Promise<{ id: string; status: OrderStatus }> {
-    try {
-      await this.ordersRepository.reprocess(id, correlationId);
-    } catch (error) {
-      if (error instanceof OrderNotFoundError) {
-        throw new NotFoundException(error.message);
-      }
-      if (error instanceof OrderNotFailedError) {
-        throw new ConflictException(error.message);
-      }
-      throw error;
-    }
+    await this.ordersRepository.reprocess(id, correlationId);
     return { id, status: OrderStatus.PENDING };
   }
 

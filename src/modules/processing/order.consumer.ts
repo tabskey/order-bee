@@ -11,7 +11,7 @@ import {
   retryQueueName,
 } from '../../shared/messaging/topology';
 import type { OrderCreatedEvent } from '../orders/domain/events/order-created.event';
-import { decideFailureAction } from './decide-failure-action';
+import { StockService } from '../stock/stock.service';
 import { OrderProcessingService } from './order-processing.service';
 
 const PREFETCH = 10;
@@ -21,15 +21,14 @@ export class OrderCreatedConsumer implements OnModuleInit {
   private readonly logger = new Logger(OrderCreatedConsumer.name);
   private readonly channel: ChannelWrapper;
   private readonly retryDelaysMs: number[];
-  private readonly maxAttempts: number;
 
   constructor(
     rabbit: RabbitmqConnection,
     @Inject(ConfigService) config: ConfigService<EnvConfig, true>,
     private readonly processing: OrderProcessingService,
+    private readonly stock: StockService,
   ) {
     this.retryDelaysMs = config.get('RETRY_DELAYS_MS', { infer: true });
-    this.maxAttempts = this.retryDelaysMs.length + 1;
     this.channel = rabbit.createChannel({
       json: true,
       setup: async (channel: ConfirmChannel) => {
@@ -111,10 +110,11 @@ export class OrderCreatedConsumer implements OnModuleInit {
   ): Promise<void> {
     const { orderId, correlationId } = event;
     const attemptsMade = Number(message.properties.headers?.['x-attempt'] ?? 0);
-    const action = decideFailureAction(error, attemptsMade, this.maxAttempts);
     const reason = error instanceof Error ? error.message : String(error);
 
-    if (action === 'RETRY') {
+    // ADR-0012: every error here is technical. One retry per configured delay,
+    // then dead-letter.
+    if (attemptsMade < this.retryDelaysMs.length) {
       const delayMs = this.retryDelaysMs[attemptsMade];
       try {
         await this.channel.sendToQueue(retryQueueName(delayMs), event, {
@@ -143,18 +143,7 @@ export class OrderCreatedConsumer implements OnModuleInit {
       return;
     }
 
-    await this.processing.markFailed(orderId, reason);
-
-    if (action === 'FAIL_NOW') {
-      this.logger.log({
-        event: 'order.failed',
-        orderId,
-        correlationId,
-        reason,
-      });
-      channel.ack(message);
-      return;
-    }
+    await this.stock.markFailed(orderId, reason);
 
     try {
       await this.channel.publish(DEAD_LETTER_EXCHANGE, '', event, {

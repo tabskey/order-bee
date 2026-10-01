@@ -52,14 +52,18 @@ export class StockService {
       });
     } catch (error) {
       if (error instanceof InsufficientStockError) {
-        await this.dataSource.query(
-          `UPDATE orders SET status = 'FAILED', failure_reason = ?
-           WHERE id = ? AND status = 'PENDING'`,
-          ['estoque insuficiente', orderId],
-        );
+        await this.markFailed(orderId, 'estoque insuficiente');
         return ReserveResult.INSUFFICIENT_STOCK;
       }
       throw error;
     }
+  }
+
+  async markFailed(orderId: string, reason: string): Promise<void> {
+    await this.dataSource.query(
+      `UPDATE orders SET status = 'FAILED', failure_reason = ?
+       WHERE id = ? AND status = 'PENDING'`,
+      [reason, orderId],
+    );
   }
 }

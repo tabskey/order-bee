@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
 import { ProductEntity } from '../stock/entities/product.entity';
@@ -7,13 +12,9 @@ import { OutboxEventEntity } from '../../shared/outbox/entities/outbox-event.ent
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderItemEntity } from './entities/order-item.entity';
 import { OrderEntity } from './entities/order.entity';
-import { calculateOrderTotal } from './domain/calculate-order-total';
 import { ORDER_CREATED_EVENT } from './domain/events/order-created.event';
 import { OrderStatus } from './domain/order-status.enum';
 import { centsToDecimalString, toCents } from './domain/money';
-import { OrderNotFailedError } from './errors/order-not-failed.error';
-import { OrderNotFoundError } from './errors/order-not-found.error';
-import { ProductsNotFoundError } from './errors/products-not-found.error';
 
 export interface CreateOrderCommand {
   dto: CreateOrderDto;
@@ -44,7 +45,9 @@ export class OrdersRepository {
 
       const missing = productNames.filter((name) => !productByName.has(name));
       if (missing.length > 0) {
-        throw new ProductsNotFoundError(missing);
+        throw new UnprocessableEntityException(
+          `Products not found: ${missing.join(', ')}`,
+        );
       }
 
       const itemsWithCents = dto.items.map((item) => ({
@@ -53,7 +56,10 @@ export class OrdersRepository {
         unitPriceCents: toCents(item.price),
       }));
 
-      const totalCents = calculateOrderTotal(itemsWithCents);
+      const totalCents = itemsWithCents.reduce(
+        (total, item) => total + item.quantity * item.unitPriceCents,
+        0,
+      );
       const orderId = randomUUID();
 
       await manager.insert(OrderEntity, {
@@ -111,10 +117,12 @@ export class OrdersRepository {
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.findOneBy(OrderEntity, { id });
       if (!order) {
-        throw new OrderNotFoundError(id);
+        throw new NotFoundException(`Order ${id} not found`);
       }
       if (order.status !== OrderStatus.FAILED) {
-        throw new OrderNotFailedError(id, order.status);
+        throw new ConflictException(
+          `Order ${id} cannot be reprocessed: status is ${order.status}, not FAILED`,
+        );
       }
 
       const result = await manager
@@ -129,7 +137,9 @@ export class OrdersRepository {
         .andWhere('status = :status', { status: OrderStatus.FAILED })
         .execute();
       if (!result.affected) {
-        throw new OrderNotFailedError(id, order.status);
+        throw new ConflictException(
+          `Order ${id} cannot be reprocessed: status changed concurrently`,
+        );
       }
 
       await manager.insert(OutboxEventEntity, {

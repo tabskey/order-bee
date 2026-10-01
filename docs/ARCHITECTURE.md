@@ -59,7 +59,7 @@ src/
 ├── app.module.ts
 ├── worker.module.ts
 ├── modules/
-│   ├── auth/                   # login, JwtStrategy, RolesGuard, @Roles()
+│   ├── auth/                   # login, JwtAuthGuard, RolesGuard, @Roles()
 │   ├── users/
 │   ├── orders/
 │   │   ├── orders.controller.ts
@@ -69,7 +69,7 @@ src/
 │   │   ├── entities/
 │   │   └── domain/             # sem NestJS, sem ORM
 │   │       ├── order-status.enum.ts
-│   │       ├── calculate-order-total.ts
+│   │       ├── money.ts
 │   │       └── events/order-created.event.ts
 │   ├── stock/
 │   │   ├── stock.service.ts            # ADR-0001
@@ -77,14 +77,12 @@ src/
 │   └── processing/
 │       ├── order.consumer.ts           # ack / retry / DLQ
 │       ├── order-processing.service.ts
-│       ├── decide-failure-action.ts    # função pura, ADR-0002
 │       └── errors/simulated-processing.error.ts
 └── shared/
     ├── database/               # data source, migrations, seeds
     ├── outbox/                 # entidade, repositório, relay
     ├── messaging/              # conexão, topologia, publisher
-    ├── logging/                # Pino, middleware de correlation ID
-    └── errors/                 # BusinessError (base)
+    └── logging/                # Pino, middleware de correlation ID
 test/
 ├── e2e/
 └── integration/
@@ -193,7 +191,7 @@ O enunciado não fixa o formato do payload; a forma abaixo foi definida nesta im
 { "id": "<uuid>", "status": "PENDING" }
 ```
 
-`price` é o preço unitário em reais (decimal, até 2 casas); convertido para centavos internamente (`domain/money.ts`) antes de `calculateOrderTotal`. `POST /orders` exige `Authorization: Bearer <JWT>` — `JwtStrategy` foi adiantada da Etapa 7 para esta etapa (só decodifica e valida o token; login, `RolesGuard` e `@Roles()` continuam na Etapa 7) porque `orders.created_by` é obrigatório desde a criação do pedido.
+`price` é o preço unitário em reais (decimal, até 2 casas); convertido para centavos internamente (`domain/money.ts`) e somado em centavos. `POST /orders` exige `Authorization: Bearer <JWT>` — a validação do token (`JwtAuthGuard`) foi adiantada da Etapa 7 para esta etapa (só decodifica e valida o token; login, `RolesGuard` e `@Roles()` continuam na Etapa 7) porque `orders.created_by` é obrigatório desde a criação do pedido.
 
 O `OrderCreatedEvent` é um evento de domínio; o outbox é o mecanismo que o persiste. O service não sabe que existe RabbitMQ. A mensagem carrega **só `orderId` e `correlationId`**: o worker relê o pedido, e o banco é a fonte da verdade.
 
@@ -297,15 +295,15 @@ Teste de integração com **MySQL real**: estoque 5, três pedidos de 2 processa
 
 ## 10. Falhas, retry e dead-letter
 
-Decisões em [ADR-0002](adr/0002-classificacao-de-falhas-no-worker.md) e [ADR-0004](adr/0004-rabbitmq-com-retry-por-filas-de-atraso.md).
+Decisões em [ADR-0012](adr/0012-falha-de-negocio-via-reserve-result.md) (substitui o ADR-0002) e [ADR-0004](adr/0004-rabbitmq-com-retry-por-filas-de-atraso.md).
 
 | Tipo | Exemplos | Ação |
 |---|---|---|
-| **Negócio** | estoque insuficiente | `FAILED` imediato com motivo; ack; sem retry |
+| **Negócio** | estoque insuficiente | tratado em `StockService.reserve` via `ReserveResult`: `FAILED` imediato com motivo; ack; sem retry |
 | **Técnica** | timeout, deadlock, `"fail"` no nome | republica na fila de atraso da tentativa (padrão 1s → 5s → 25s, via `RETRY_DELAYS_MS`); ack da original |
 | **Técnica esgotada** | última tentativa (padrão: 4ª) | `FAILED` com o erro; publica em `order.created.dlq`; ack |
 
-`decideFailureAction(error, attempt, maxAttempts)` retorna `RETRY | FAIL_NOW | FAIL_AND_DEAD_LETTER`. O consumer só executa. A verificação de estoque acontece **durante** a tentativa: checagem prévia reabriria a race condition.
+Toda exceção que chega ao consumer é técnica: retry enquanto `attemptsMade < RETRY_DELAYS_MS.length`, depois `FAILED` + DLQ. A verificação de estoque acontece **durante** a tentativa: checagem prévia reabriria a race condition.
 
 Topologia RabbitMQ:
 
@@ -322,7 +320,7 @@ Reprocessamento manual (`POST /orders/:id/reprocess`, ADMIN): transição `FAILE
 
 | Nível | O quê | Infra |
 |---|---|---|
-| Unidade | `calculateOrderTotal`, `decideFailureAction` | nenhuma |
+| Unidade | `toCents` / `centsToDecimalString`, `RolesGuard`, `AuthService`, `HealthController` | nenhuma |
 | e2e | `POST /orders` → pedido `PENDING` + linha no outbox; 401 sem token; 422 produto inexistente | MySQL real |
 | Integração ⭐ | concorrência no estoque; reentrega não decrementa duas vezes; `"fail"` → retries → `FAILED` + DLQ | MySQL e RabbitMQ reais (Testcontainers) |
 
@@ -330,7 +328,7 @@ Regra: nenhum teste de concorrência ou idempotência usa mock de banco. Os test
 
 ## 12. Autenticação e autorização
 
-JWT HS256 emitido por `POST /auth/login`, validado por `JwtStrategy`; `RolesGuard` + `@Roles()`.
+JWT HS256 emitido por `POST /auth/login`, validado por `JwtAuthGuard` ([ADR-0011](adr/0011-guard-jwt-sem-passport.md)); `RolesGuard` + `@Roles()`.
 
 | Endpoint | Público | USER | ADMIN |
 |---|---|---|---|
@@ -344,7 +342,7 @@ JWT HS256 emitido por `POST /auth/login`, validado por `JwtStrategy`; `RolesGuar
 
 `POST /auth/register` (pública) cria conta com `role` sempre `USER`; `role` não é aceito no payload. `DELETE /users/:id` (ADMIN) é **soft delete**: seta `users.deleted_at` via `@DeleteDateColumn`, nunca remove a linha — `orders.created_by` continua íntegro; login exclui automaticamente usuários soft-deletados. `PATCH /users/:id/role` (ADMIN) troca a role de outro usuário e grava uma linha em `user_role_changes` (quem, de quem, role antes/depois, quando) na mesma transação — é o único caminho para criar uma nova conta `ADMIN` fora do seed. Nenhuma dessas duas rotas ADMIN permite que o admin altere a própria conta (`400` se `:id` for o próprio autenticado), para evitar lockout. Detalhes e trade-offs em [ADR-0009](adr/0009-registro-de-conta-e-softdelete-de-usuario.md).
 
-`POST /auth/google` (pública) recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* de usuário local pelo e-mail verificado: se não existir, cria com `role: 'USER'` e um `password_hash` placeholder (login local por senha nunca vai funcionar para essa conta); se existir, reusa. Emite o mesmo JWT HS256 de `POST /auth/login` — `JwtStrategy`, `RolesGuard` e `@Roles()` não mudam. É aditivo ao login local, não o substitui. Decisão e alternativas em [ADR-0010](adr/0010-login-via-google-sso.md).
+`POST /auth/google` (pública) recebe `idToken` do Google, valida via `google-auth-library` (JWKS oficial, `aud` = `GOOGLE_CLIENT_ID`) e faz *upsert* de usuário local pelo e-mail verificado: se não existir, cria com `role: 'USER'` e um `password_hash` placeholder (login local por senha nunca vai funcionar para essa conta); se existir, reusa. Emite o mesmo JWT HS256 de `POST /auth/login` — `JwtAuthGuard`, `RolesGuard` e `@Roles()` não mudam. É aditivo ao login local, não o substitui. Decisão e alternativas em [ADR-0010](adr/0010-login-via-google-sso.md).
 
 Usuários de teste criados por seed. Integração com Keycloak/Auth0 (full resource-server) continua só descrita no README ([ADR-0006](adr/0006-jwt-proprio-com-roles.md)).
 
@@ -370,4 +368,4 @@ Usuários de teste criados por seed. Integração com Keycloak/Auth0 (full resou
 | Idempotent Consumer | claim por status | *At-least-once* sem efeito duplicado |
 | Retry com backoff | filas de atraso | Falhas transitórias se resolvem sozinhas |
 | Dead Letter Channel | `order.created.dlq` | Mensagens irrecuperáveis ficam inspecionáveis |
-| Guard / Strategy | autenticação e roles | Padrão nativo do NestJS (Passport) |
+| Guard | `JwtAuthGuard` + `RolesGuard` | Guards nativos do NestJS, sem Passport (ADR-0011) |

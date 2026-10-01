@@ -164,7 +164,7 @@ As principais decisões estão registradas nos ADRs:
 | ADR | Decisão |
 |---|---|
 | [0001](docs/adr/0001-reserva-de-estoque-atomica-e-idempotente.md) | Reserva de estoque atômica e idempotente (⭐ requisito central) |
-| [0002](docs/adr/0002-classificacao-de-falhas-no-worker.md) | Classificação de falhas: negócio vs. técnica |
+| [0002](docs/adr/0002-classificacao-de-falhas-no-worker.md) | Classificação de falhas: negócio vs. técnica (substituído pelo 0012) |
 | [0003](docs/adr/0003-worker-como-processo-separado.md) | Worker como processo separado da API |
 | [0004](docs/adr/0004-rabbitmq-com-retry-por-filas-de-atraso.md) | RabbitMQ com retry por filas de atraso e DLQ |
 | [0005](docs/adr/0005-transactional-outbox.md) | Transactional outbox para publicar sem dual write |
@@ -173,12 +173,13 @@ As principais decisões estão registradas nos ADRs:
 | [0008](docs/adr/0008-validacao-de-produto-no-post.md) | Validação de produto no `POST /orders` |
 | [0009](docs/adr/0009-registro-de-conta-e-softdelete-de-usuario.md) | Registro de conta, soft delete e troca de role com auditoria |
 | [0010](docs/adr/0010-login-via-google-sso.md) | Login via Google (SSO real, aditivo ao JWT local) |
+| [0011](docs/adr/0011-guard-jwt-sem-passport.md) | Guard JWT próprio, sem Passport (substitui parcialmente o 0006) |
+| [0012](docs/adr/0012-falha-de-negocio-via-reserve-result.md) | Falha de negócio via `ReserveResult`, sem `BusinessError` (substitui o 0002) |
 
 ### ⚖️ Trade-offs reconhecidos
 
 - 👤 **Regra de posse:** `USER` só vê os próprios pedidos (`GET /orders` e `GET /orders/:id` filtrados por `created_by`); `ADMIN` vê todos. Pedido de outro usuário responde `404`, não `403`, para não revelar que o pedido existe.
 - 💲 **Preço vem do cliente:** o enunciado envia `price` no payload e `products` não tem coluna de preço. Aceitamos como especificado; em produção o preço viria do catálogo, nunca do cliente.
-- 🚫 **`FAIL_NOW` hoje não é alcançado no worker:** `InsufficientStockError` é tratado dentro de `StockService.reserve` (que marca `FAILED` na hora). O caminho continua em `decideFailureAction` para futuros erros de negócio ([ADR-0002](docs/adr/0002-classificacao-de-falhas-no-worker.md)).
 - ☠️ **Mensagem ilegível (poison message):** payload que não é JSON vai direto para a DLQ (`order.poison_message` no log), sem retry — tentar de novo não ajuda.
 - 🧾 **Correlation ID do cliente:** o header `x-correlation-id` só é aceito se for UUID; qualquer outro valor é substituído por um novo, porque vai para colunas `CHAR(36)` e para os logs.
 - ⏱️ **Outbox com broker fora do ar:** `publishTimeout` de 5 s faz o relay desistir e liberar a transação (e os locks) em vez de esperar o broker voltar; o próximo tick tenta de novo.
@@ -201,7 +202,7 @@ O teste pede JWT próprio com usuário de teste; SSO completo (multi-provedor, r
 
 Para trocar a autenticação atual:
 
-- `JwtStrategy` passa a validar **RS256** com chaves do endpoint JWKS do provedor (`jwks-rsa`, com cache), em vez de segredo HS256 local.
+- `JwtAuthGuard` passa a validar **RS256** com chaves do endpoint JWKS do provedor (`jwks-rsa`, com cache), em vez de segredo HS256 local.
 - Validação de `iss` e `aud`.
 - Roles extraídas de `realm_access.roles` (Keycloak) ou de claim customizada (Auth0).
 - `POST /auth/login` e `users.password_hash` deixam de existir; a API vira apenas **resource server**, enquanto o provedor cuida da autenticação.

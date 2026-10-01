@@ -67,9 +67,6 @@ export class EnvConfig {
 
   @IsIn(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
   LOG_LEVEL = 'info';
-
-  @IsString()
-  CORRELATION_ID_HEADER = 'x-correlation-id';
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvConfig {
